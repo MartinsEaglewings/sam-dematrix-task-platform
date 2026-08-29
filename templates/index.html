@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Sam&DeMatrix | Earn From Tasks</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<header class="navbar">
+
+    <a href="/" class="logo">
+        <span>₦</span> Sam&DeMatrix
+    </a>
+
+    <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how">How It Works</a>
+        <a href="{{ url_for('login') }}" class="login-link">Login</a>
+        <a href="{{ url_for('signup') }}" class="nav-button">Get Started</a>
+    </div>
+
+</header>
+
+
+<main>
+
+<section class="hero">
+
+    <div class="hero-content">
+
+        <div class="badge">
+            🇳🇬 BUILT FOR NIGERIA
+        </div>
+
+        <h1>
+            Turn Your Free Time
+            <span>Into Earnings.</span>
+        </h1>
+
+        <p>
+            Complete available online tasks, earn rewards,
+            and track your earnings from one simple platform.
+        </p>
+
+        <div class="hero-buttons">
+
+            <a href="{{ url_for('signup') }}" class="primary-button">
+                Create Free Account
+            </a>
+
+            <a href="#how" class="secondary-button">
+                Learn How It Works
+            </a>
+
+        </div>
+
+        <div class="trust-row">
+            <div>
+                <strong>₦</strong>
+                Nigerian Naira
+            </div>
+
+            <div>
+                <strong>✓</strong>
+                Secure Accounts
+            </div>
+
+            <div>
+                <strong>24/7</strong>
+                Access
+            </div>
+        </div>
+
+    </div>
+
+
+    <div class="hero-card">
+
+        <div class="card-top">
+            <span>YOUR EARNING POTENTIAL</span>
+            <span class="live-dot">● LIVE</span>
+        </div>
+
+        <div class="money">
+            ₦12,450<span>.00</span>
+        </div>
+
+        <div class="chart">
+
+            <div class="bar b1"></div>
+            <div class="bar b2"></div>
+            <div class="bar b3"></div>
+            <div class="bar b4"></div>
+            <div class="bar b5"></div>
+            <div class="bar b6"></div>
+            <div class="bar b7"></div>
+            <div class="bar b8"></div>
+
+        </div>
+
+        <div class="earning-info">
+            <span>Task rewards</span>
+            <strong>Growing daily</strong>
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="stats">
+
+    <div>
+        <strong>01</strong>
+        Easy Registration
+    </div>
+
+    <div>
+        <strong>02</strong>
+        Complete Tasks
+    </div>
+
+    <div>
+        <strong>03</strong>
+        Earn Rewards
+    </div>
+
+    <div>
+        <strong>04</strong>
+        Request Withdrawal
+    </div>
+
+</section>
+
+
+<section id="features" class="section">
+
+    <div class="section-heading">
+        <small>WHY Sam&DeMatrix?</small>
+
+        <h2>
+            Simple. Transparent.
+            <span>Rewarding.</span>
+        </h2>
+
+        <p>
+            Everything you need to manage your task earnings
+            in one convenient dashboard.
+        </p>
+    </div>
+
+
+    <div class="feature-grid">
+
+        <article class="feature">
+            <div class="feature-icon">₦</div>
+            <h3>Naira Rewards</h3>
+            <p>
+                View your task rewards directly in Nigerian Naira.
+            </p>
+        </article>
+
+        <article class="feature">
+            <div class="feature-icon">✓</div>
+            <h3>Task System</h3>
+            <p>
+                Browse available tasks and track completed work.
+            </p>
+        </article>
+
+        <article class="feature">
+            <div class="feature-icon">🔐</div>
+            <h3>Protected Login</h3>
+            <p>
+                Passwords are securely hashed before storage.
+            </p>
+        </article>
+
+        <article class="feature">
+            <div class="feature-icon">📱</div>
+            <h3>Mobile Friendly</h3>
+            <p>
+                Designed to work comfortably on Android phones.
+            </p>
+        </article>
+
+    </div>
+
+</section>
+
+
+<section id="how" class="how-section">
+
+    <div class="section-heading">
+        <small>HOW IT WORKS</small>
+
+        <h2>
+            Start earning in
+            <span>four steps.</span>
+        </h2>
+    </div>
+
+
+    <div class="steps">
+
+        <div class="step">
+            <div>01</div>
+            <h3>Create Account</h3>
+            <p>Register your free Sam&DeMatrix account.</p>
+        </div>
+
+        <div class="step">
+            <div>02</div>
+            <h3>Choose Tasks</h3>
+            <p>Browse tasks available to you.</p>
+        </div>
+
+        <div class="step">
+            <div>03</div>
+            <h3>Complete Work</h3>
+            <p>Follow the instructions for each task.</p>
+        </div>
+
+        <div class="step">
+            <div>04</div>
+            <h3>Request Payment</h3>
+            <p>Request withdrawal when eligible.</p>
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="cta">
+
+    <h2>
+        Ready to get started?
+    </h2>
+
+    <p>
+        Create your account and explore the available tasks.
+    </p>
+
+    <a href="{{ url_for('signup') }}" class="primary-button">
+        Join Sam&DeMatrix
+    </a>
+
+</section>
+
+</main>
+
+
+<footer>
+
+    <div class="logo">
+        <span>₦</span> Sam&DeMatrix
+    </div>
+
+    <p>
+        © 2026 Sam&DeMatrix. Task rewards platform.
+        <a href="{{ url_for('admin_login') }}" class="admin-trigger">.</a>
+    </p>
+
+</footer>
+
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>

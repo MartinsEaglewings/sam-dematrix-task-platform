@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Admin Dashboard | Sam&DeMatrix</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+<body class="dashboard-body">
+
+<header class="dashboard-nav">
+
+    <a href="/" class="logo">
+        <span>₦</span> Sam&DeMatrix
+    </a>
+
+    <div class="user-menu">
+
+        <span>
+            Administrator
+        </span>
+
+        <a href="{{ url_for('admin_logout') }}">
+            Logout
+        </a>
+
+    </div>
+
+</header>
+
+<main class="dashboard">
+
+    <div class="dashboard-title">
+
+        <small>ADMINISTRATION</small>
+
+        <h1>
+            Admin Dashboard
+        </h1>
+
+        <p>
+            View registered users and platform balances.
+        </p>
+
+    </div>
+
+    <section class="balance-grid">
+
+        <div class="balance-card">
+
+            <span>REGISTERED USERS</span>
+
+            <strong>
+                {{ total_users }}
+            </strong>
+
+            <small>
+                Total accounts
+            </small>
+
+        </div>
+
+        <div class="stat-card">
+
+            <span>TOTAL USER BALANCES</span>
+
+            <strong>
+                ₦{{ "%.2f"|format(total_balance) }}
+            </strong>
+
+            <small>
+                Combined task balances
+            </small>
+
+        </div>
+
+        <div class="stat-card">
+
+            <span>PLATFORM</span>
+
+            <strong>
+                ACTIVE
+            </strong>
+
+            <small>
+                Sam&DeMatrix task platform
+            </small>
+
+        </div>
+
+    </section>
+
+    <section class="tasks-section">
+
+        <div class="section-heading dashboard-heading">
+
+            <small>USER MANAGEMENT</small>
+
+            <h2>
+                Registered
+                <span>Users.</span>
+            </h2>
+
+        </div>
+
+        {% if users %}
+
+        <div class="admin-table-wrapper">
+
+            <table class="admin-table">
+
+                <thead>
+
+                    <tr>
+                        <th>ID</th>
+                        <th>Full Name</th>
+                        <th>Email</th>
+                        <th>Balance</th>
+                        <th>Registered</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for user in users %}
+
+                    <tr>
+
+                        <td>
+                            #{{ user["id"] }}
+                        </td>
+
+                        <td>
+                            {{ user["fullname"] }}
+                        </td>
+
+                        <td>
+                            {{ user["email"] }}
+                        </td>
+
+                        <td class="admin-balance">
+                            ₦{{ "%.2f"|format(user["balance"]) }}
+                        </td>
+
+                        <td>
+                            {{ user["created_at"] }}
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        {% else %}
+
+        <div class="empty-state">
+            No users have registered yet.
+        </div>
+
+        {% endif %}
+
+    </section>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Dashboard | Sam&DeMatrix</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+
+<body class="dashboard-body">
+
+
+<header class="dashboard-nav">
+
+    <a href="/" class="logo">
+        <span>₦</span> Sam&DeMatrix
+    </a>
+
+    <div class="user-menu">
+
+        <span>
+            Hi, {{ user["fullname"].split()[0] }}
+        </span>
+
+        <a href="{{ url_for('logout') }}">
+            Logout
+        </a>
+
+    </div>
+
+</header>
+
+
+<main class="dashboard">
+
+    <div class="dashboard-title">
+
+        <div>
+            <small>YOUR DASHBOARD</small>
+
+            <h1>
+                Welcome, {{ user["fullname"] }} 👋
+            </h1>
+
+            <p>
+                Complete available tasks and manage your rewards.
+            </p>
+        </div>
+
+    </div>
+
+
+    {% with messages = get_flashed_messages() %}
+
+        {% if messages %}
+
+            <div class="dashboard-alert">
+
+                {% for message in messages %}
+                    {{ message }}
+                {% endfor %}
+
+            </div>
+
+        {% endif %}
+
+    {% endwith %}
+
+
+    <section class="balance-grid">
+
+        <div class="balance-card">
+
+            <span>AVAILABLE BALANCE</span>
+
+            <strong>
+                ₦{{ "%.2f"|format(user["balance"]) }}
+            </strong>
+
+            <small>
+                Task rewards
+            </small>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <span>TASKS COMPLETED</span>
+
+            <strong>
+                {{ completed_count }}
+            </strong>
+
+            <small>
+                Successfully completed
+            </small>
+
+        </div>
+
+
+        <div class="action-card">
+
+            <a href="{{ url_for('withdraw') }}">
+                Withdraw
+            </a>
+
+            <a href="{{ url_for('deposit') }}">
+                Deposit
+            </a>
+
+        </div>
+
+    </section>
+
+
+    <section class="tasks-section">
+
+        <div class="section-heading dashboard-heading">
+
+            <small>AVAILABLE TASKS</small>
+
+            <h2>
+                Earn by completing
+                <span>tasks.</span>
+            </h2>
+
+        </div>
+
+
+        <div class="task-grid">
+
+            {% for task in tasks %}
+
+                <article class="task-card">
+
+                    <div class="task-icon">
+                        ✓
+                    </div>
+
+                    <div class="task-content">
+
+                        <h3>
+                            {{ task["title"] }}
+                        </h3>
+
+                        <p>
+                            {{ task["description"] }}
+                        </p>
+
+                        <strong class="reward">
+                            ₦{{ "%.2f"|format(task["reward"]) }}
+                        </strong>
+
+                    </div>
+
+
+                    {% if task["completed"] %}
+
+                        <button
+                            class="completed-button"
+                            disabled
+                        >
+                            ✓ Completed
+                        </button>
+
+                    {% else %}
+
+                        <form
+                            method="POST"
+                            action="{{ url_for('complete_task', task_id=task['id']) }}"
+                        >
+
+                            <button
+                                type="submit"
+                                class="primary-button task-button"
+                            >
+                                Complete Task
+                            </button>
+
+                        </form>
+
+                    {% endif %}
+
+                </article>
+
+            {% else %}
+
+                <div class="empty-state">
+                    No tasks are currently available.
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Withdraw | Sam&DeMatrix</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+
+<body class="dashboard-body">
+
+
+<header class="dashboard-nav">
+
+    <a href="/" class="logo">
+        <span>₦</span> Sam&DeMatrix
+    </a>
+
+    <a href="{{ url_for('dashboard') }}">
+        ← Dashboard
+    </a>
+
+</header>
+
+
+<main class="form-page">
+
+    <div class="form-card">
+
+        <div class="mini-icon">
+            ₦
+        </div>
+
+        <h1>Request Withdrawal</h1>
+
+        <p>
+            Available balance:
+            <strong>
+                ₦{{ "%.2f"|format(current_user["balance"]) }}
+            </strong>
+        </p>
+
+
+        {% with messages = get_flashed_messages() %}
+
+            {% if messages %}
+
+                <div class="alert">
+
+                    {% for message in messages %}
+                        {{ message }}
+                    {% endfor %}
+
+                </div>
+
+            {% endif %}
+
+        {% endwith %}
+
+
+        <form method="POST">
+
+            <label>Amount</label>
+
+            <input
+                type="number"
+                name="amount"
+                min="1"
+                step="0.01"
+                placeholder="Enter amount"
+                required
+            >
+
+
+            <label>Account Name</label>
+
+            <input
+                type="text"
+                name="account_name"
+                placeholder="Account holder name"
+                required
+            >
+
+
+            <label>Account Number</label>
+
+            <input
+                type="text"
+                name="account_number"
+                inputmode="numeric"
+                maxlength="20"
+                placeholder="Bank account number"
+                required
+            >
+
+
+            <label>Bank Name</label>
+
+            <input
+                type="text"
+                name="bank_name"
+                placeholder="Enter bank name"
+                required
+            >
+
+
+            <button
+                type="submit"
+                class="primary-button full"
+            >
+                Submit Withdrawal Request
+            </button>
+
+        </form>
+
+    </div>
+
+</main>
+
+</body>
+</html>

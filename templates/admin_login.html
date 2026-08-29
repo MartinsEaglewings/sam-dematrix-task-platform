@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Admin Access | Sam&DeMatrix</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+<body class="auth-body">
+
+<div class="auth-container">
+
+    <a href="/" class="auth-logo">
+        <span>₦</span> Sam&DeMatrix
+    </a>
+
+    <div class="auth-card">
+
+        <div class="auth-heading">
+
+            <div class="mini-icon">
+                🔐
+            </div>
+
+            <h1>Admin Access</h1>
+
+            <p>
+                Enter the administrator PIN to continue.
+            </p>
+
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+
+            {% if messages %}
+
+                <div class="alert">
+
+                    {% for message in messages %}
+                        {{ message }}
+                    {% endfor %}
+
+                </div>
+
+            {% endif %}
+
+        {% endwith %}
+
+        <form method="POST">
+
+            <label>Administrator PIN</label>
+
+            <input
+                type="password"
+                name="pin"
+                placeholder="Enter admin PIN"
+                autocomplete="off"
+                required
+            >
+
+            <button
+                type="submit"
+                class="primary-button full"
+            >
+                Enter Admin Dashboard
+            </button>
+
+        </form>
+
+        <p class="auth-footer">
+
+            <a href="/">
+                Return to website
+            </a>
+
+        </p>
+
+    </div>
+
+</div>
+
+</body>
+</html>

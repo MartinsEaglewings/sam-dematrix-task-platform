@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Deposit | Sam&DeMatrix</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+    <style>
+        .deposit-details {
+            margin-top: 25px;
+            padding: 20px;
+
+            border: 1px solid rgba(217,170,69,.25);
+            border-radius: 16px;
+
+            background: rgba(217,170,69,.07);
+        }
+
+        .account-label {
+            display: block;
+            margin-bottom: 8px;
+
+            color: #9da8a2;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .account-name {
+            font-size: 19px;
+            font-weight: 800;
+            color: white;
+        }
+
+        .account-number {
+            margin-top: 4px;
+
+            font-size: 30px;
+            font-weight: 900;
+
+            color: #f2d078;
+            letter-spacing: 1px;
+        }
+
+        .copy-deposit-button {
+            width: 100%;
+            margin-top: 20px;
+            padding: 15px;
+
+            border: none;
+            border-radius: 11px;
+
+            background: linear-gradient(
+                135deg,
+                #18a85c,
+                #0c7a43
+            );
+
+            color: white;
+
+            font-weight: 800;
+            font-size: 15px;
+
+            cursor: pointer;
+        }
+
+        .copy-deposit-button:active {
+            transform: scale(.98);
+        }
+
+        .deposit-note {
+            margin-top: 18px;
+
+            color: #9da8a2;
+            font-size: 12px;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        .copied-message {
+            display: none;
+
+            margin-top: 12px;
+
+            color: #45dc8b;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+        }
+    </style>
+
+</head>
+
+
+<body class="dashboard-body">
+
+
+<header class="dashboard-nav">
+
+    <a href="/" class="logo">
+        <span>₦</span> Sam&DeMatrix
+    </a>
+
+    <a href="{{ url_for('dashboard') }}">
+        ← Dashboard
+    </a>
+
+</header>
+
+
+<main class="form-page">
+
+    <div class="form-card">
+
+        <div class="mini-icon">
+            ₦
+        </div>
+
+        <h1>Deposit</h1>
+
+        <p>
+            Use the account details below to make your deposit.
+        </p>
+
+
+        <div class="deposit-details">
+
+            <span class="account-label">
+                Account Name
+            </span>
+
+            <div class="account-name">
+                Martins OLuwatimilehin
+            </div>
+
+
+            <span
+                class="account-label"
+                style="margin-top:18px;"
+            >
+                Account Number
+            </span>
+
+            <div class="account-number">
+                9068053574
+            </div>
+
+
+            <button
+                type="button"
+                class="copy-deposit-button"
+                id="copyDepositButton"
+            >
+                📋 Copy Account Number & Open OPay
+            </button>
+
+
+            <div
+                class="copied-message"
+                id="copiedMessage"
+            >
+                ✓ Account number copied
+            </div>
+
+        </div>
+
+
+        <p class="deposit-note">
+            After copying the account number, the button will
+            attempt to open the OPay app on your device.
+        </p>
+
+
+        <a
+            href="{{ url_for('dashboard') }}"
+            class="secondary-button full"
+        >
+            Return to Dashboard
+        </a>
+
+    </div>
+
+</main>
+
+
+<script>
+
+const copyButton =
+    document.getElementById("copyDepositButton");
+
+const copiedMessage =
+    document.getElementById("copiedMessage");
+
+
+copyButton.addEventListener("click", async () => {
+
+    const accountNumber = "9068053574";
+
+    try {
+
+        await navigator.clipboard.writeText(accountNumber);
+
+        copiedMessage.style.display = "block";
+
+    } catch (error) {
+
+        const temporaryInput =
+            document.createElement("input");
+
+        temporaryInput.value = accountNumber;
+
+        document.body.appendChild(temporaryInput);
+
+        temporaryInput.select();
+
+        document.execCommand("copy");
+
+        temporaryInput.remove();
+
+        copiedMessage.style.display = "block";
+    }
+
+
+    /*
+       Try to open the OPay Android application.
+
+       Android/browser security may prevent an app from
+       opening automatically on some devices.
+    */
+
+    setTimeout(() => {
+
+        window.location.href = "opay://";
+
+    }, 500);
+
+
+    /*
+       Fallback: if the OPay application does not respond,
+       the user remains on the deposit page.
+    */
+
+    setTimeout(() => {
+
+        if (document.visibilityState === "visible") {
+
+            copiedMessage.textContent =
+                "✓ Copied. If OPay did not open, launch OPay manually.";
+
+        }
+
+    }, 1800);
+
+});
+
+</script>
+
+
+</body>
+</html>
