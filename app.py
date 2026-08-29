@@ -594,8 +594,11 @@ def admin_logout():
 
     return redirect(url_for("index"))
 
+# Initialize the database when the application starts.
+# This is required for both local Flask and Render/Gunicorn.
+init_db()
+
 if __name__ == "__main__":
-    init_db()
 
     app.run(
         host="0.0.0.0",
