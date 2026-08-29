@@ -180,6 +180,24 @@ def init_db():
             )
         """)
 
+    # PostgreSQL migration: preserve an existing tasks table
+    # while adding columns required by this application.
+    if os.environ.get("DATABASE_URL"):
+        conn.execute("""
+            ALTER TABLE tasks
+            ADD COLUMN IF NOT EXISTS description TEXT
+        """)
+
+        conn.execute("""
+            ALTER TABLE tasks
+            ADD COLUMN IF NOT EXISTS reward DOUBLE PRECISION NOT NULL DEFAULT 0
+        """)
+
+        conn.execute("""
+            ALTER TABLE tasks
+            ADD COLUMN IF NOT EXISTS active INTEGER NOT NULL DEFAULT 1
+        """)
+
     task_count = conn.execute(
         "SELECT COUNT(*) FROM tasks"
     ).fetchone()[0]
