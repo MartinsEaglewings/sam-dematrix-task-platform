@@ -407,12 +407,20 @@ def login():
 
         conn.close()
 
-        if user and check_password_hash(
-            user["password"],
-            password
-        ):
-            session["user_id"] = user["id"]
-            return redirect(url_for("dashboard"))
+        if user:
+            stored_password = user["password"]
+
+            try:
+                password_valid = check_password_hash(
+                    stored_password,
+                    password
+                )
+            except (ValueError, TypeError):
+                password_valid = stored_password == password
+
+            if password_valid:
+                session["user_id"] = user["id"]
+                return redirect(url_for("dashboard"))
 
         flash("Incorrect email or password.")
 
