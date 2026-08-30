@@ -253,8 +253,8 @@ def init_db():
         """)
 
     task_count = conn.execute(
-        "SELECT COUNT(*) FROM tasks"
-    ).fetchone()[0]
+        "SELECT COUNT(*) AS count FROM tasks"
+    ).fetchone()["count"]
 
     if task_count == 0:
 
