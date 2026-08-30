@@ -58,22 +58,48 @@ class PostgreSQLConnection:
 
 
 def get_db():
-
     database_url = os.environ.get("DATABASE_URL")
 
     if database_url:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
 
-        if psycopg2 is None:
-            raise RuntimeError(
-                "psycopg2-binary is required when DATABASE_URL is set."
+        # Render may provide postgres://; psycopg2 expects postgresql://
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace(
+                "postgres://", "postgresql://", 1
             )
 
-        return PostgreSQLConnection(database_url)
+        conn = psycopg2.connect(database_url)
+        conn.cursor_factory = RealDictCursor
+        return DBConnection(conn)
 
-    conn = sqlite3.connect(DATABASE)
+    import sqlite3
+
+    conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
+    return DBConnection(conn)
 
-    return conn
+
+class DBConnection:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def execute(self, sql, params=()):
+        if os.environ.get("DATABASE_URL"):
+            sql = sql.replace("?", "%s")
+        return self.conn.cursor().execute(sql, params)
+
+    def executemany(self, sql, params):
+        if os.environ.get("DATABASE_URL"):
+            sql = sql.replace("?", "%s")
+        return self.conn.cursor().executemany(sql, params)
+
+    def commit(self):
+        return self.conn.commit()
+
+    def close(self):
+        return self.conn.close()
 
 
 def init_db():
@@ -180,12 +206,21 @@ def init_db():
             )
         """)
 
-    # PostgreSQL migration: preserve an existing tasks table
-    # while adding columns required by this application.
+    # PostgreSQL schema compatibility.
     if os.environ.get("DATABASE_URL"):
         conn.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS balance DOUBLE PRECISION NOT NULL DEFAULT 0
+        """)
+
+        conn.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        """)
+
+        conn.execute("""
             ALTER TABLE tasks
-            ADD COLUMN IF NOT EXISTS description TEXT
+            ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''
         """)
 
         conn.execute("""
@@ -196,6 +231,21 @@ def init_db():
         conn.execute("""
             ALTER TABLE tasks
             ADD COLUMN IF NOT EXISTS active INTEGER NOT NULL DEFAULT 1
+        """)
+
+        conn.execute("""
+            ALTER TABLE completed_tasks
+            ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        """)
+
+        conn.execute("""
+            ALTER TABLE withdrawals
+            ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Pending'
+        """)
+
+        conn.execute("""
+            ALTER TABLE withdrawals
+            ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         """)
 
     task_count = conn.execute(
