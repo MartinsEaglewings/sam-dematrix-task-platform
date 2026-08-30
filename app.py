@@ -7,7 +7,7 @@ import re
 
 try:
     import psycopg2
-    from psycopg2.extras import DictCursor
+    from psycopg2.extras import RealDictCursor
 except ImportError:
     psycopg2 = None
 
@@ -35,7 +35,7 @@ class PostgreSQLConnection:
     def execute(self, sql, params=()):
         sql = sql.replace("?", "%s")
 
-        cursor = self.conn.cursor(cursor_factory=DictCursor)
+        cursor = self.conn.cursor(cursor_factory=RealDictCursor)
 
         cursor.execute(sql, params)
 
@@ -44,7 +44,7 @@ class PostgreSQLConnection:
     def executemany(self, sql, params):
         sql = sql.replace("?", "%s")
 
-        cursor = self.conn.cursor(cursor_factory=DictCursor)
+        cursor = self.conn.cursor(cursor_factory=RealDictCursor)
 
         cursor.executemany(sql, params)
 
@@ -82,7 +82,7 @@ class DBConnection:
     def execute(self, sql, params=()):
         if self.postgres:
             sql = sql.replace("?", "%s")
-            cursor = self.conn.cursor(cursor_factory=DictCursor)
+            cursor = self.conn.cursor(cursor_factory=RealDictCursor)
         else:
             cursor = self.conn.cursor()
 
@@ -92,7 +92,7 @@ class DBConnection:
     def executemany(self, sql, params):
         if self.postgres:
             sql = sql.replace("?", "%s")
-            cursor = self.conn.cursor(cursor_factory=DictCursor)
+            cursor = self.conn.cursor(cursor_factory=RealDictCursor)
         else:
             cursor = self.conn.cursor()
 
