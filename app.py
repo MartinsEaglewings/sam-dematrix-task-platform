@@ -71,7 +71,6 @@ def get_db():
             )
 
         conn = psycopg2.connect(database_url)
-        conn.cursor_factory = RealDictCursor
         return DBConnection(conn)
 
     import sqlite3
