@@ -88,12 +88,16 @@ class DBConnection:
     def execute(self, sql, params=()):
         if os.environ.get("DATABASE_URL"):
             sql = sql.replace("?", "%s")
-        return self.conn.cursor().execute(sql, params)
+        cursor = self.conn.cursor()
+        cursor.execute(sql, params)
+        return cursor
 
     def executemany(self, sql, params):
         if os.environ.get("DATABASE_URL"):
             sql = sql.replace("?", "%s")
-        return self.conn.cursor().executemany(sql, params)
+        cursor = self.conn.cursor()
+        cursor.executemany(sql, params)
+        return cursor
 
     def commit(self):
         return self.conn.commit()
