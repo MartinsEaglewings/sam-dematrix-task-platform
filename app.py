@@ -61,40 +61,41 @@ def get_db():
     database_url = os.environ.get("DATABASE_URL")
 
     if database_url:
-        import psycopg2
-        from psycopg2.extras import RealDictCursor
-
-        # Render may provide postgres://; psycopg2 expects postgresql://
         if database_url.startswith("postgres://"):
             database_url = database_url.replace(
                 "postgres://", "postgresql://", 1
             )
 
         conn = psycopg2.connect(database_url)
-        return DBConnection(conn)
-
-    import sqlite3
+        return DBConnection(conn, postgres=True)
 
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
-    return DBConnection(conn)
+    return DBConnection(conn, postgres=False)
 
 
 class DBConnection:
-    def __init__(self, conn):
+    def __init__(self, conn, postgres=False):
         self.conn = conn
+        self.postgres = postgres
 
     def execute(self, sql, params=()):
-        if os.environ.get("DATABASE_URL"):
+        if self.postgres:
             sql = sql.replace("?", "%s")
-        cursor = self.conn.cursor()
+            cursor = self.conn.cursor(cursor_factory=DictCursor)
+        else:
+            cursor = self.conn.cursor()
+
         cursor.execute(sql, params)
         return cursor
 
     def executemany(self, sql, params):
-        if os.environ.get("DATABASE_URL"):
+        if self.postgres:
             sql = sql.replace("?", "%s")
-        cursor = self.conn.cursor()
+            cursor = self.conn.cursor(cursor_factory=DictCursor)
+        else:
+            cursor = self.conn.cursor()
+
         cursor.executemany(sql, params)
         return cursor
 
