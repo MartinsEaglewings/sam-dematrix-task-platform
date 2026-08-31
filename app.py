@@ -25,7 +25,7 @@ class DBConnection:
     def execute(self, sql, params=()):
         if self.postgres:
             sql = sql.replace("?", "%s")
-            cursor = self.conn.cursor()
+            cursor = self.conn.cursor(cursor_factory=RealDictCursor)
         else:
             cursor = self.conn.cursor()
 
@@ -35,7 +35,7 @@ class DBConnection:
     def executemany(self, sql, params):
         if self.postgres:
             sql = sql.replace("?", "%s")
-            cursor = self.conn.cursor()
+            cursor = self.conn.cursor(cursor_factory=RealDictCursor)
         else:
             cursor = self.conn.cursor()
 
@@ -55,6 +55,7 @@ def get_db():
     if database_url:
         try:
             import psycopg2
+            from psycopg2.extras import RealDictCursor
         except ImportError:
             raise RuntimeError(
                 "psycopg2 is required when DATABASE_URL is configured."
