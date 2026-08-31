@@ -17,204 +17,95 @@ app.secret_key = os.environ.get(
 DATABASE = "database.db"
 
 
-class TursoRow(dict):
-    """Dictionary row compatible with the existing application."""
-    pass
-
-
-class TursoCursor:
-    def __init__(self, rows=None, rowcount=0):
-        self.rows = rows or []
-        self.rowcount = rowcount
-
-    def fetchone(self):
-        if not self.rows:
-            return None
-        return self.rows[0]
-
-    def fetchall(self):
-        return self.rows
-
-
-class TursoConnection:
-    def __init__(self, url, token):
-        self.url = url.rstrip("/")
-        self.token = token
-        self.pending = []
+class DBConnection:
+    def __init__(self, conn, postgres=False):
+        self.conn = conn
+        self.postgres = postgres
 
     def execute(self, sql, params=()):
-        sql = sql.strip()
+        if self.postgres:
+            sql = sql.replace("?", "%s")
+            cursor = self.conn.cursor()
+        else:
+            cursor = self.conn.cursor()
 
-        # Turso HTTP API uses ? placeholders.
-        args = []
+        cursor.execute(sql, params)
+        return cursor
 
-        for value in params:
-            if value is None:
-                args.append(None)
-            elif isinstance(value, bool):
-                args.append(1 if value else 0)
-            else:
-                args.append(value)
+    def executemany(self, sql, params):
+        if self.postgres:
+            sql = sql.replace("?", "%s")
+            cursor = self.conn.cursor()
+        else:
+            cursor = self.conn.cursor()
 
-        self.pending.append({
-            "type": "execute",
-            "stmt": {
-                "sql": sql,
-                "args": [
-                    {
-                        "type": (
-                            "null" if value is None else
-                            "integer" if isinstance(value, int) else
-                            "float" if isinstance(value, float) else
-                            "text"
-                        ),
-                        "value": None if value is None else str(value)
-                    }
-                    for value in args
-                ]
-            }
-        })
-
-        return self._send_last()
-
-    def executemany(self, sql, params_list):
-        for params in params_list:
-            self.execute(sql, params)
-
-        return TursoCursor()
-
-    def _send_last(self):
-        request_body = {
-            "requests": [self.pending.pop()]
-        }
-
-        response = requests.post(
-            self.url,
-            json=request_body,
-            headers={
-                "Authorization": f"Bearer {self.token}",
-                "Content-Type": "application/json"
-            },
-            timeout=30
-        )
-
-        response.raise_for_status()
-
-        data = response.json()
-
-        result = data["results"][0]
-
-        if result.get("type") == "error":
-            raise RuntimeError(
-                result.get("error", {}).get(
-                    "message",
-                    "Turso database error"
-                )
-            )
-
-        response_data = result.get("response", {})
-
-        result_set = response_data.get("result", {})
-
-        columns = result_set.get("cols", [])
-        rows = result_set.get("rows", [])
-
-        column_names = [
-            column.get("name", "")
-            for column in columns
-        ]
-
-        converted_rows = []
-
-        for row in rows:
-            values = []
-
-            for item in row:
-                value = item.get("value")
-
-                if item.get("type") == "null":
-                    value = None
-
-                values.append(value)
-
-            converted_rows.append(
-                TursoRow(
-                    zip(column_names, values)
-                )
-            )
-
-        return TursoCursor(
-            converted_rows,
-            response_data.get("affected_row_count", 0)
-        )
+        cursor.executemany(sql, params)
+        return cursor
 
     def commit(self):
-        pass
+        return self.conn.commit()
 
     def close(self):
-        pass
+        return self.conn.close()
 
 
 def get_db():
-    turso_url = os.environ.get("TURSO_DATABASE_URL", "").strip()
-    turso_token = os.environ.get("TURSO_AUTH_TOKEN", "").strip()
+    database_url = os.environ.get("DATABASE_URL", "").strip()
 
-    # Remove accidental invisible Unicode characters from Render variables.
-    turso_url = turso_url.replace("\u200e", "").replace("\u200f", "").replace("\ufeff", "")
-
-    if turso_url and turso_token:
-        # Turso libSQL HTTP pipeline endpoint
-        if turso_url.startswith("libsql://"):
-            turso_url = (
-                "https://" +
-                turso_url[len("libsql://"):]
+    if database_url:
+        try:
+            import psycopg2
+        except ImportError:
+            raise RuntimeError(
+                "psycopg2 is required when DATABASE_URL is configured."
             )
 
-        if not turso_url.endswith("/v2/pipeline"):
-            turso_url += "/v2/pipeline"
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace(
+                "postgres://",
+                "postgresql://",
+                1
+            )
 
-        return TursoConnection(
-            turso_url,
-            turso_token
-        )
+        conn = psycopg2.connect(database_url)
+        return DBConnection(conn, postgres=True)
 
-    # Local fallback only.
-    conn = sqlite3.connect("database.db")
+    conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
 
-    return conn
+    return DBConnection(conn, postgres=False)
+
 
 def init_db():
 
     conn = get_db()
 
-    if os.environ.get("TURSO_DATABASE_URL") and os.environ.get("TURSO_AUTH_TOKEN"):
+    if conn.postgres:
 
-        # Turso / libSQL schema
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 fullname TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
-                balance REAL NOT NULL DEFAULT 0,
+                balance DOUBLE PRECISION NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
         conn.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 title TEXT NOT NULL,
                 description TEXT NOT NULL,
-                reward REAL NOT NULL,
+                reward DOUBLE PRECISION NOT NULL,
                 active INTEGER NOT NULL DEFAULT 1
             )
         """)
 
         conn.execute("""
             CREATE TABLE IF NOT EXISTS completed_tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL,
                 task_id INTEGER NOT NULL,
                 completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -226,9 +117,9 @@ def init_db():
 
         conn.execute("""
             CREATE TABLE IF NOT EXISTS withdrawals (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL,
-                amount REAL NOT NULL,
+                amount DOUBLE PRECISION NOT NULL,
                 account_name TEXT NOT NULL,
                 account_number TEXT NOT NULL,
                 bank_name TEXT NOT NULL,
@@ -240,7 +131,6 @@ def init_db():
 
     else:
 
-        # Existing SQLite schema — unchanged.
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -286,48 +176,6 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
-        """)
-
-    # PostgreSQL schema compatibility.
-    if os.environ.get("DATABASE_URL"):
-        conn.execute("""
-            ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS balance DOUBLE PRECISION NOT NULL DEFAULT 0
-        """)
-
-        conn.execute("""
-            ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        """)
-
-        conn.execute("""
-            ALTER TABLE tasks
-            ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''
-        """)
-
-        conn.execute("""
-            ALTER TABLE tasks
-            ADD COLUMN IF NOT EXISTS reward DOUBLE PRECISION NOT NULL DEFAULT 0
-        """)
-
-        conn.execute("""
-            ALTER TABLE tasks
-            ADD COLUMN IF NOT EXISTS active INTEGER NOT NULL DEFAULT 1
-        """)
-
-        conn.execute("""
-            ALTER TABLE completed_tasks
-            ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        """)
-
-        conn.execute("""
-            ALTER TABLE withdrawals
-            ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Pending'
-        """)
-
-        conn.execute("""
-            ALTER TABLE withdrawals
-            ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         """)
 
     task_count = conn.execute(
@@ -371,7 +219,6 @@ def init_db():
 
     conn.commit()
     conn.close()
-
 
 
 def login_required(function):
