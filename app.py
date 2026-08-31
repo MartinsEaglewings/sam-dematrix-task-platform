@@ -156,8 +156,11 @@ class TursoConnection:
 
 
 def get_db():
-    turso_url = os.environ.get("TURSO_DATABASE_URL")
-    turso_token = os.environ.get("TURSO_AUTH_TOKEN")
+    turso_url = os.environ.get("TURSO_DATABASE_URL", "").strip()
+    turso_token = os.environ.get("TURSO_AUTH_TOKEN", "").strip()
+
+    # Remove accidental invisible Unicode characters from Render variables.
+    turso_url = turso_url.replace("\u200e", "").replace("\u200f", "").replace("\ufeff", "")
 
     if turso_url and turso_token:
         # Turso libSQL HTTP pipeline endpoint
