@@ -190,31 +190,31 @@ def init_db():
 
     if os.environ.get("TURSO_DATABASE_URL") and os.environ.get("TURSO_AUTH_TOKEN"):
 
-        # PostgreSQL schema
+        # Turso / libSQL schema
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 fullname TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
-                balance DOUBLE PRECISION NOT NULL DEFAULT 0,
+                balance REAL NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
         conn.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 description TEXT NOT NULL,
-                reward DOUBLE PRECISION NOT NULL,
+                reward REAL NOT NULL,
                 active INTEGER NOT NULL DEFAULT 1
             )
         """)
 
         conn.execute("""
             CREATE TABLE IF NOT EXISTS completed_tasks (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 task_id INTEGER NOT NULL,
                 completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -226,9 +226,9 @@ def init_db():
 
         conn.execute("""
             CREATE TABLE IF NOT EXISTS withdrawals (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
-                amount DOUBLE PRECISION NOT NULL,
+                amount REAL NOT NULL,
                 account_name TEXT NOT NULL,
                 account_number TEXT NOT NULL,
                 bank_name TEXT NOT NULL,
