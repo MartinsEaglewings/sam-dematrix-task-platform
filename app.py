@@ -154,6 +154,16 @@ def init_db():
     conn.close()
 
 
+def login_required(function):
+    @wraps(function)
+    def wrapper(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please login to continue.", "error")
+            return redirect(url_for("login"))
+        return function(*args, **kwargs)
+    return wrapper
+
+
 @app.context_processor
 def inject_user():
     if "user_id" not in session:
