@@ -1,8 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
-from psycopg2.extras import RealDictCursor
 import os
+import psycopg2
+from psycopg2.extras import DictCursor
 import requests
 from functools import wraps
 import re
@@ -15,31 +15,23 @@ app.secret_key = os.environ.get(
     "SAMUE_CHANGE_THIS_SECRET_KEY"
 )
 
-DATABASE = "database.db"
+DATABASE = None
 
 
 class DBConnection:
-    def __init__(self, conn, postgres=False):
+    def __init__(self, conn):
         self.conn = conn
-        self.postgres = postgres
+        self.postgres = True
 
     def execute(self, sql, params=()):
-        if self.postgres:
-            sql = sql.replace("?", "%s")
-            cursor = self.conn.cursor(cursor_factory=RealDictCursor)
-        else:
-            cursor = self.conn.cursor()
-
+        sql = sql.replace("?", "%s")
+        cursor = self.conn.cursor(cursor_factory=DictCursor)
         cursor.execute(sql, params)
         return cursor
 
     def executemany(self, sql, params):
-        if self.postgres:
-            sql = sql.replace("?", "%s")
-            cursor = self.conn.cursor(cursor_factory=RealDictCursor)
-        else:
-            cursor = self.conn.cursor()
-
+        sql = sql.replace("?", "%s")
+        cursor = self.conn.cursor(cursor_factory=DictCursor)
         cursor.executemany(sql, params)
         return cursor
 
@@ -53,138 +45,78 @@ class DBConnection:
 def get_db():
     database_url = os.environ.get("DATABASE_URL", "").strip()
 
-    if database_url:
-        try:
-            import psycopg2
-        except ImportError:
-            raise RuntimeError(
-                "psycopg2 is required when DATABASE_URL is configured."
-            )
+    if not database_url:
+        raise RuntimeError(
+            "DATABASE_URL is not configured. "
+            "Set DATABASE_URL to your Render PostgreSQL connection string."
+        )
 
-        if database_url.startswith("postgres://"):
-            database_url = database_url.replace(
-                "postgres://",
-                "postgresql://",
-                1
-            )
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace(
+            "postgres://",
+            "postgresql://",
+            1
+        )
 
-        conn = psycopg2.connect(database_url)
-        return DBConnection(conn, postgres=True)
-
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-
-    return DBConnection(conn, postgres=False)
+    conn = psycopg2.connect(database_url)
+    return DBConnection(conn)
 
 
 def init_db():
-
     conn = get_db()
 
-    if conn.postgres:
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            fullname TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            balance DOUBLE PRECISION NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                fullname TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                balance DOUBLE PRECISION NOT NULL DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tasks (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            reward DOUBLE PRECISION NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1
+        )
+    """)
 
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS tasks (
-                id SERIAL PRIMARY KEY,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                reward DOUBLE PRECISION NOT NULL,
-                active INTEGER NOT NULL DEFAULT 1
-            )
-        """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS completed_tasks (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            task_id INTEGER NOT NULL,
+            completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, task_id),
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(task_id) REFERENCES tasks(id)
+        )
+    """)
 
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS completed_tasks (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                task_id INTEGER NOT NULL,
-                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, task_id),
-                FOREIGN KEY(user_id) REFERENCES users(id),
-                FOREIGN KEY(task_id) REFERENCES tasks(id)
-            )
-        """)
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS withdrawals (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                amount DOUBLE PRECISION NOT NULL,
-                account_name TEXT NOT NULL,
-                account_number TEXT NOT NULL,
-                bank_name TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'Pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-        """)
-
-    else:
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                fullname TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                balance REAL NOT NULL DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                reward REAL NOT NULL,
-                active INTEGER NOT NULL DEFAULT 1
-            )
-        """)
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS completed_tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                task_id INTEGER NOT NULL,
-                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, task_id),
-                FOREIGN KEY(user_id) REFERENCES users(id),
-                FOREIGN KEY(task_id) REFERENCES tasks(id)
-            )
-        """)
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS withdrawals (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                amount REAL NOT NULL,
-                account_name TEXT NOT NULL,
-                account_number TEXT NOT NULL,
-                bank_name TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'Pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-        """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS withdrawals (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            amount DOUBLE PRECISION NOT NULL,
+            account_name TEXT NOT NULL,
+            account_number TEXT NOT NULL,
+            bank_name TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    """)
 
     task_count = conn.execute(
         "SELECT COUNT(*) AS count FROM tasks"
     ).fetchone()["count"]
 
     if task_count == 0:
-
         tasks = [
             (
                 "Website Visit",
@@ -220,17 +152,6 @@ def init_db():
 
     conn.commit()
     conn.close()
-
-
-def login_required(function):
-    @wraps(function)
-    def wrapper(*args, **kwargs):
-        if "user_id" not in session:
-            flash("Please login first.")
-            return redirect(url_for("login"))
-        return function(*args, **kwargs)
-
-    return wrapper
 
 
 @app.context_processor
