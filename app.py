@@ -2,20 +2,13 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import os
+import requests
 from functools import wraps
 import re
-
-try:
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-except ImportError:
-    psycopg2 = None
 
 
 app = Flask(__name__)
 
-# Keep local development working.
-# Render will provide DATABASE_URL automatically.
 app.secret_key = os.environ.get(
     "SECRET_KEY",
     "SAMUE_CHANGE_THIS_SECRET_KEY"
@@ -24,93 +17,175 @@ app.secret_key = os.environ.get(
 DATABASE = "database.db"
 
 
-class PostgreSQLConnection:
-    """Small compatibility wrapper so the existing application
-    can continue using conn.execute(...) and ? placeholders."""
+class TursoRow(dict):
+    """Dictionary row compatible with the existing application."""
+    pass
 
-    def __init__(self, url):
-        self.conn = psycopg2.connect(url)
-        self.conn.autocommit = False
+
+class TursoCursor:
+    def __init__(self, rows=None, rowcount=0):
+        self.rows = rows or []
+        self.rowcount = rowcount
+
+    def fetchone(self):
+        if not self.rows:
+            return None
+        return self.rows[0]
+
+    def fetchall(self):
+        return self.rows
+
+
+class TursoConnection:
+    def __init__(self, url, token):
+        self.url = url.rstrip("/")
+        self.token = token
+        self.pending = []
 
     def execute(self, sql, params=()):
-        sql = sql.replace("?", "%s")
+        sql = sql.strip()
 
-        cursor = self.conn.cursor(cursor_factory=RealDictCursor)
+        # Turso HTTP API uses ? placeholders.
+        args = []
 
-        cursor.execute(sql, params)
+        for value in params:
+            if value is None:
+                args.append(None)
+            elif isinstance(value, bool):
+                args.append(1 if value else 0)
+            else:
+                args.append(value)
 
-        return cursor
+        self.pending.append({
+            "type": "execute",
+            "stmt": {
+                "sql": sql,
+                "args": [
+                    {
+                        "type": (
+                            "null" if value is None else
+                            "integer" if isinstance(value, int) else
+                            "float" if isinstance(value, float) else
+                            "text"
+                        ),
+                        "value": None if value is None else str(value)
+                    }
+                    for value in args
+                ]
+            }
+        })
 
-    def executemany(self, sql, params):
-        sql = sql.replace("?", "%s")
+        return self._send_last()
 
-        cursor = self.conn.cursor(cursor_factory=RealDictCursor)
+    def executemany(self, sql, params_list):
+        for params in params_list:
+            self.execute(sql, params)
 
-        cursor.executemany(sql, params)
+        return TursoCursor()
 
-        return cursor
+    def _send_last(self):
+        request_body = {
+            "requests": [self.pending.pop()]
+        }
+
+        response = requests.post(
+            self.url,
+            json=request_body,
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json"
+            },
+            timeout=30
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        result = data["results"][0]
+
+        if result.get("type") == "error":
+            raise RuntimeError(
+                result.get("error", {}).get(
+                    "message",
+                    "Turso database error"
+                )
+            )
+
+        response_data = result.get("response", {})
+
+        result_set = response_data.get("result", {})
+
+        columns = result_set.get("cols", [])
+        rows = result_set.get("rows", [])
+
+        column_names = [
+            column.get("name", "")
+            for column in columns
+        ]
+
+        converted_rows = []
+
+        for row in rows:
+            values = []
+
+            for item in row:
+                value = item.get("value")
+
+                if item.get("type") == "null":
+                    value = None
+
+                values.append(value)
+
+            converted_rows.append(
+                TursoRow(
+                    zip(column_names, values)
+                )
+            )
+
+        return TursoCursor(
+            converted_rows,
+            response_data.get("affected_row_count", 0)
+        )
 
     def commit(self):
-        self.conn.commit()
+        pass
 
     def close(self):
-        self.conn.close()
+        pass
 
 
 def get_db():
-    database_url = os.environ.get("DATABASE_URL")
+    turso_url = os.environ.get("TURSO_DATABASE_URL")
+    turso_token = os.environ.get("TURSO_AUTH_TOKEN")
 
-    if database_url:
-        if database_url.startswith("postgres://"):
-            database_url = database_url.replace(
-                "postgres://", "postgresql://", 1
+    if turso_url and turso_token:
+        # Turso libSQL HTTP pipeline endpoint
+        if turso_url.startswith("libsql://"):
+            turso_url = (
+                "https://" +
+                turso_url[len("libsql://"):]
             )
 
-        conn = psycopg2.connect(database_url)
-        return DBConnection(conn, postgres=True)
+        if not turso_url.endswith("/v2/pipeline"):
+            turso_url += "/v2/pipeline"
 
+        return TursoConnection(
+            turso_url,
+            turso_token
+        )
+
+    # Local fallback only.
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
-    return DBConnection(conn, postgres=False)
 
-
-class DBConnection:
-    def __init__(self, conn, postgres=False):
-        self.conn = conn
-        self.postgres = postgres
-
-    def execute(self, sql, params=()):
-        if self.postgres:
-            sql = sql.replace("?", "%s")
-            cursor = self.conn.cursor(cursor_factory=RealDictCursor)
-        else:
-            cursor = self.conn.cursor()
-
-        cursor.execute(sql, params)
-        return cursor
-
-    def executemany(self, sql, params):
-        if self.postgres:
-            sql = sql.replace("?", "%s")
-            cursor = self.conn.cursor(cursor_factory=RealDictCursor)
-        else:
-            cursor = self.conn.cursor()
-
-        cursor.executemany(sql, params)
-        return cursor
-
-    def commit(self):
-        return self.conn.commit()
-
-    def close(self):
-        return self.conn.close()
-
+    return conn
 
 def init_db():
 
     conn = get_db()
 
-    if os.environ.get("DATABASE_URL"):
+    if os.environ.get("TURSO_DATABASE_URL") and os.environ.get("TURSO_AUTH_TOKEN"):
 
         # PostgreSQL schema
         conn.execute("""
@@ -454,10 +529,10 @@ def dashboard():
     """, (session["user_id"],)).fetchall()
 
     completed_count = conn.execute("""
-        SELECT COUNT(*)
+        SELECT COUNT(*) AS count
         FROM completed_tasks
         WHERE user_id = ?
-    """, (session["user_id"],)).fetchone()[0]
+    """, (session["user_id"],)).fetchone()["count"]
 
     conn.close()
 
@@ -650,12 +725,12 @@ def admin_dashboard():
     """).fetchall()
 
     total_users = conn.execute(
-        "SELECT COUNT(*) FROM users"
-    ).fetchone()[0]
+        "SELECT COUNT(*) AS count FROM users"
+    ).fetchone()["count"]
 
     total_balance = conn.execute(
-        "SELECT COALESCE(SUM(balance), 0) FROM users"
-    ).fetchone()[0]
+        "SELECT COALESCE(SUM(balance), 0) AS total FROM users"
+    ).fetchone()["total"]
 
     conn.close()
 
