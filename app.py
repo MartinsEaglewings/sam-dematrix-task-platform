@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
+from psycopg2.extras import RealDictCursor
 import os
 import requests
 from functools import wraps
@@ -55,7 +56,6 @@ def get_db():
     if database_url:
         try:
             import psycopg2
-            from psycopg2.extras import RealDictCursor
         except ImportError:
             raise RuntimeError(
                 "psycopg2 is required when DATABASE_URL is configured."
