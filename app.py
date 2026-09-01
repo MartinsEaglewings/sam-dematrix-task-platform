@@ -219,10 +219,34 @@ def init_db():
 def login_required(function):
     @wraps(function)
     def wrapper(*args, **kwargs):
-        if "user_id" not in session:
+        user_id = session.get("user_id")
+
+        if not user_id:
+            session.pop("user_id", None)
             flash("Please login to continue.", "error")
             return redirect(url_for("login"))
+
+        # Verify that the logged-in user still exists.
+        try:
+            conn = get_db()
+            user = conn.execute(
+                "SELECT id FROM users WHERE id = ?",
+                (user_id,)
+            ).fetchone()
+            conn.close()
+
+            if not user:
+                session.pop("user_id", None)
+                flash("Your login session has expired. Please login again.", "error")
+                return redirect(url_for("login"))
+
+        except Exception:
+            session.pop("user_id", None)
+            flash("Please login again.", "error")
+            return redirect(url_for("login"))
+
         return function(*args, **kwargs)
+
     return wrapper
 
 
@@ -239,6 +263,9 @@ def inject_user():
     ).fetchone()
 
     conn.close()
+
+    if not user:
+        session.pop("user_id", None)
 
     return {"current_user": user}
 
@@ -314,6 +341,9 @@ def login():
 
     if request.method == "POST":
 
+        # Always remove an old/stale login before authenticating again.
+        session.pop("user_id", None)
+
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
 
@@ -356,6 +386,12 @@ def dashboard():
         "SELECT * FROM users WHERE id = ?",
         (session["user_id"],)
     ).fetchone()
+
+    if not user:
+        conn.close()
+        session.pop("user_id", None)
+        flash("Your login session is no longer valid. Please login again.", "error")
+        return redirect(url_for("login"))
 
     tasks = conn.execute("""
         SELECT
