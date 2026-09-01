@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import psycopg2
-from psycopg2.extras import DictCursor
+from psycopg2.extras import RealDictCursor
 import requests
 from functools import wraps
 import re
@@ -25,13 +25,13 @@ class DBConnection:
 
     def execute(self, sql, params=()):
         sql = sql.replace("?", "%s")
-        cursor = self.conn.cursor(cursor_factory=DictCursor)
+        cursor = self.conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute(sql, params)
         return cursor
 
     def executemany(self, sql, params):
         sql = sql.replace("?", "%s")
-        cursor = self.conn.cursor(cursor_factory=DictCursor)
+        cursor = self.conn.cursor(cursor_factory=RealDictCursor)
         cursor.executemany(sql, params)
         return cursor
 
