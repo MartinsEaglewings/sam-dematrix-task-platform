@@ -150,6 +150,25 @@ def init_db():
             f'ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "{column}" {definition}'
         )
 
+    # Convert old VARCHAR columns to TEXT so existing PostgreSQL schemas
+    # can store Werkzeug password hashes and the application's full text.
+    text_columns = [
+        ("users", "fullname"),
+        ("users", "email"),
+        ("users", "password"),
+        ("tasks", "title"),
+        ("tasks", "description"),
+        ("withdrawals", "account_name"),
+        ("withdrawals", "account_number"),
+        ("withdrawals", "bank_name"),
+        ("withdrawals", "status")
+    ]
+
+    for table, column in text_columns:
+        conn.execute(
+            f'ALTER TABLE "{table}" ALTER COLUMN "{column}" TYPE TEXT'
+        )
+
     # Keep existing users intact while ensuring NULL balances do not
     # break dashboard and withdrawal calculations.
     conn.execute("""
