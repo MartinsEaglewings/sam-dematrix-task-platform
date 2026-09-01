@@ -36,10 +36,10 @@ class DBConnection:
         return cursor
 
     def commit(self):
-        return self.conn.commit()
+        self.conn.commit()
 
     def close(self):
-        return self.conn.close()
+        self.conn.close()
 
 
 def get_db():
@@ -47,24 +47,20 @@ def get_db():
 
     if not database_url:
         raise RuntimeError(
-            "DATABASE_URL is not configured. "
-            "Set DATABASE_URL to your Render PostgreSQL connection string."
+            "DATABASE_URL is not configured."
         )
 
     if database_url.startswith("postgres://"):
         database_url = database_url.replace(
-            "postgres://",
-            "postgresql://",
-            1
+            "postgres://", "postgresql://", 1
         )
 
-    conn = psycopg2.connect(database_url)
-    return DBConnection(conn)
-
+    return DBConnection(psycopg2.connect(database_url))
 
 def init_db():
     conn = get_db()
 
+    # Create the application tables if they do not already exist.
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -112,26 +108,26 @@ def init_db():
         )
     """)
 
-    # PostgreSQL schema migration: add missing columns to existing tables
+    # Repair columns that may be missing from an older PostgreSQL schema.
     migrations = [
         ("users", "fullname", "TEXT"),
         ("users", "email", "TEXT"),
         ("users", "password", "TEXT"),
-        ("users", "balance", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
+        ("users", "balance", "DOUBLE PRECISION DEFAULT 0"),
         ("users", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
         ("tasks", "title", "TEXT"),
         ("tasks", "description", "TEXT"),
-        ("tasks", "reward", "DOUBLE PRECISION"),
-        ("tasks", "active", "INTEGER NOT NULL DEFAULT 1"),
+        ("tasks", "reward", "DOUBLE PRECISION DEFAULT 0"),
+        ("tasks", "active", "INTEGER DEFAULT 1"),
         ("completed_tasks", "user_id", "INTEGER"),
         ("completed_tasks", "task_id", "INTEGER"),
         ("completed_tasks", "completed_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
         ("withdrawals", "user_id", "INTEGER"),
-        ("withdrawals", "amount", "DOUBLE PRECISION"),
+        ("withdrawals", "amount", "DOUBLE PRECISION DEFAULT 0"),
         ("withdrawals", "account_name", "TEXT"),
         ("withdrawals", "account_number", "TEXT"),
         ("withdrawals", "bank_name", "TEXT"),
-        ("withdrawals", "status", "TEXT NOT NULL DEFAULT 'Pending'"),
+        ("withdrawals", "status", "TEXT DEFAULT 'Pending'"),
         ("withdrawals", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     ]
 
@@ -140,12 +136,23 @@ def init_db():
             f'ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "{column}" {definition}'
         )
 
+    # Keep existing users intact while ensuring NULL balances do not
+    # break dashboard and withdrawal calculations.
+    conn.execute("""
+        UPDATE users
+        SET balance = 0
+        WHERE balance IS NULL
+    """)
+
     task_count = conn.execute(
         "SELECT COUNT(*) AS count FROM tasks"
     ).fetchone()["count"]
 
     if task_count == 0:
-        tasks = [
+        conn.executemany("""
+            INSERT INTO tasks (title, description, reward)
+            VALUES (?, ?, ?)
+        """, [
             (
                 "Website Visit",
                 "Visit the assigned website and complete the required activity.",
@@ -171,16 +178,10 @@ def init_db():
                 "Complete your daily platform check-in.",
                 25
             )
-        ]
-
-        conn.executemany("""
-            INSERT INTO tasks (title, description, reward)
-            VALUES (?, ?, ?)
-        """, tasks)
+        ])
 
     conn.commit()
     conn.close()
-
 
 def login_required(function):
     @wraps(function)
