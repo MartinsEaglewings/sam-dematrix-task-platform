@@ -6,6 +6,7 @@ from psycopg2.extras import RealDictCursor
 import requests
 from functools import wraps
 import re
+import traceback
 
 
 app = Flask(__name__)
@@ -16,6 +17,15 @@ app.secret_key = os.environ.get(
 )
 
 DATABASE = None
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    print("\n===== UNEXPECTED APPLICATION ERROR =====")
+    traceback.print_exc()
+    print("===== END APPLICATION ERROR =====\n")
+    return "Internal server error", 500
+
 
 
 class DBConnection:
