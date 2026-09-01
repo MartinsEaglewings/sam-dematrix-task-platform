@@ -32,7 +32,7 @@
     <div class="user-menu">
 
         <span>
-            Hi, {{ user["fullname"].split()[0] }}
+            Hi, {{ user["fullname"] }}
         </span>
 
         <a href="{{ url_for('logout') }}">

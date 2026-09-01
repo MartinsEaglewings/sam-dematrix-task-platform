@@ -122,6 +122,24 @@ def init_db():
         )
     """)
 
+    # Repair existing PostgreSQL column sizes.
+    # Older deployments may have created these as VARCHAR(100),
+    # which is too small for Werkzeug password hashes.
+    conn.execute("""
+        ALTER TABLE users
+        ALTER COLUMN fullname TYPE TEXT
+    """)
+
+    conn.execute("""
+        ALTER TABLE users
+        ALTER COLUMN email TYPE TEXT
+    """)
+
+    conn.execute("""
+        ALTER TABLE users
+        ALTER COLUMN password TYPE TEXT
+    """)
+
     # Repair columns that may be missing from an older PostgreSQL schema.
     migrations = [
         ("users", "fullname", "TEXT"),
@@ -341,37 +359,48 @@ def login():
 
     if request.method == "POST":
 
-        # Always remove an old/stale login before authenticating again.
-        session.pop("user_id", None)
-
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
 
+        if not email or not password:
+            flash("Please enter your email and password.")
+            return render_template("login.html")
+
         conn = get_db()
 
-        user = conn.execute(
-            "SELECT * FROM users WHERE email = ?",
-            (email,)
-        ).fetchone()
+        try:
+            user = conn.execute(
+                "SELECT id, fullname, email, password, balance FROM users WHERE LOWER(email) = ?",
+                (email,)
+            ).fetchone()
+        finally:
+            conn.close()
 
-        conn.close()
+        if not user:
+            flash("Incorrect email or password.")
+            return render_template("login.html")
 
-        if user:
-            stored_password = user["password"]
+        stored_password = user["password"]
 
-            try:
-                password_valid = check_password_hash(
-                    stored_password,
-                    password
-                )
-            except (ValueError, TypeError):
-                password_valid = stored_password == password
+        try:
+            password_valid = check_password_hash(
+                stored_password,
+                password
+            )
+        except (ValueError, TypeError):
+            password_valid = stored_password == password
 
-            if password_valid:
-                session["user_id"] = user["id"]
-                return redirect(url_for("dashboard"))
+        if not password_valid:
+            flash("Incorrect email or password.")
+            return render_template("login.html")
 
-        flash("Incorrect email or password.")
+        # Start a completely fresh session.
+        session.clear()
+
+        # Store the PostgreSQL user ID as a normal integer.
+        session["user_id"] = int(user["id"])
+
+        return redirect(url_for("dashboard"))
 
     return render_template("login.html")
 
@@ -380,41 +409,51 @@ def login():
 @login_required
 def dashboard():
 
-    conn = get_db()
+    user_id = session.get("user_id")
 
-    user = conn.execute(
-        "SELECT * FROM users WHERE id = ?",
-        (session["user_id"],)
-    ).fetchone()
-
-    if not user:
-        conn.close()
-        session.pop("user_id", None)
-        flash("Your login session is no longer valid. Please login again.", "error")
+    if not user_id:
+        session.clear()
+        flash("Please login to continue.", "error")
         return redirect(url_for("login"))
 
-    tasks = conn.execute("""
-        SELECT
-            tasks.*,
-            CASE
-                WHEN completed_tasks.id IS NULL THEN 0
-                ELSE 1
-            END AS completed
-        FROM tasks
-        LEFT JOIN completed_tasks
-        ON tasks.id = completed_tasks.task_id
-        AND completed_tasks.user_id = ?
-        WHERE tasks.active = 1
-        ORDER BY tasks.id DESC
-    """, (session["user_id"],)).fetchall()
+    conn = get_db()
 
-    completed_count = conn.execute("""
-        SELECT COUNT(*) AS count
-        FROM completed_tasks
-        WHERE user_id = ?
-    """, (session["user_id"],)).fetchone()["count"]
+    try:
+        user = conn.execute(
+            "SELECT * FROM users WHERE id = ?",
+            (int(user_id),)
+        ).fetchone()
 
-    conn.close()
+        # The session may contain an old user ID from a previous
+        # database/session state.
+        if not user:
+            session.clear()
+            flash("Your login session has expired. Please login again.", "error")
+            return redirect(url_for("login"))
+
+        tasks = conn.execute("""
+            SELECT
+                tasks.*,
+                CASE
+                    WHEN completed_tasks.id IS NULL THEN 0
+                    ELSE 1
+                END AS completed
+            FROM tasks
+            LEFT JOIN completed_tasks
+            ON tasks.id = completed_tasks.task_id
+            AND completed_tasks.user_id = ?
+            WHERE tasks.active = 1
+            ORDER BY tasks.id DESC
+        """, (int(user_id),)).fetchall()
+
+        completed_count = conn.execute("""
+            SELECT COUNT(*) AS count
+            FROM completed_tasks
+            WHERE user_id = ?
+        """, (int(user_id),)).fetchone()["count"]
+
+    finally:
+        conn.close()
 
     return render_template(
         "dashboard.html",
