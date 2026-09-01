@@ -112,6 +112,34 @@ def init_db():
         )
     """)
 
+    # PostgreSQL schema migration: add missing columns to existing tables
+    migrations = [
+        ("users", "fullname", "TEXT"),
+        ("users", "email", "TEXT"),
+        ("users", "password", "TEXT"),
+        ("users", "balance", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
+        ("users", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+        ("tasks", "title", "TEXT"),
+        ("tasks", "description", "TEXT"),
+        ("tasks", "reward", "DOUBLE PRECISION"),
+        ("tasks", "active", "INTEGER NOT NULL DEFAULT 1"),
+        ("completed_tasks", "user_id", "INTEGER"),
+        ("completed_tasks", "task_id", "INTEGER"),
+        ("completed_tasks", "completed_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+        ("withdrawals", "user_id", "INTEGER"),
+        ("withdrawals", "amount", "DOUBLE PRECISION"),
+        ("withdrawals", "account_name", "TEXT"),
+        ("withdrawals", "account_number", "TEXT"),
+        ("withdrawals", "bank_name", "TEXT"),
+        ("withdrawals", "status", "TEXT NOT NULL DEFAULT 'Pending'"),
+        ("withdrawals", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    ]
+
+    for table, column, definition in migrations:
+        conn.execute(
+            f'ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "{column}" {definition}'
+        )
+
     task_count = conn.execute(
         "SELECT COUNT(*) AS count FROM tasks"
     ).fetchone()["count"]
